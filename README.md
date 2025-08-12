@@ -1,55 +1,115 @@
 # Resource Explorer — Rick & Morty (Next.js + TypeScript)
 
-A small, polished React app that explores the public **Rick & Morty API** with great UX.
+A polished single‑page app that explores the public **Rick & Morty API** with fast UX, shareable URLs, and local favorites.
 
-- List + detail views with pagination
-- Debounced search (`?q=`), filters (`?status=&species=`), sorting (`?sort=`)
-- URL is the source of truth and is shareable/reload-safe
-- "Favorite" characters from list & detail (persisted in `localStorage`)
-- Client caching, background refetch, and request cancellation via **TanStack Query**
-- Optimistic UI for favorite toggles
-- Theme toggle (light/dark), persisted
-- Helpful loading skeletons, error states with retry
-- Notes form on detail page, persisted locally
+## Feature Highlights
 
-## Quickstart
+- **List + Detail routes**
+  - `/characters` with **pagination** and a responsive, auto‑fit grid
+  - `/characters/[id]` detail with **favorites** and a **local notes** form
+- **Search / Filter / Sort** (URL is source of truth)
+  - Debounced search → `?q=`
+  - Filters → `?status=`, `?species=`
+  - Sort (client‑side on current page) → `?sort=name-asc|name-desc|episodes-asc|episodes-desc`
+  - State is shareable + reload‑safe; back/forward navigation preserved
+- **Favorites**
+  - Toggle from list and detail; persisted in `localStorage`
+  - “Favorites only” toggle → `?favorites=1`
+- **Data fetching & performance**
+  - **TanStack Query** caching + background refetch
+  - **Abort on change** via `AbortSignal` to avoid race conditions
+  - Loading skeletons, friendly empty states, and error blocks with **Retry**
+- **Theming & UX**
+  - Light/Dark theme with **next-themes** (preference persisted)
+  - Accessible labels, focus rings, and keyboard‑friendly controls
+  - Native selects styled for visibility in dark mode
+
+## Tech Stack
+
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS
+- @tanstack/react-query
+- next-themes
+
+## Getting Started
 
 ```bash
-npm i   # or npm i / yarn
-npm run dev # http://localhost:3000
+# install deps
+npm i        # or: pnpm i / yarn
+
+# run dev server
+npm run dev  # → http://localhost:3000
+
+# production build
+npm run build
+npm start
 ```
 
-## Architecture Notes & Trade-offs
+> Node 18+ recommended.
 
-- **Dataset**: Rick & Morty API provides built-in pagination and server-side filters (`name`, `status`, `species`), perfect for URL-driven state.
-- **URL as source of truth**: Search/filters/sort/page live in the URL. Navigating/back/forward recreates state; reloads are safe.
-- **Data fetching**: `@tanstack/react-query` handles caching, background refetch, request cancellation (via `signal`), and placeholder data for smoothness.
-- **Sorting**: The API doesn't support arbitrary sorting, so sorting is **client-side** on the current page results. If server-side sort were required across the full dataset, we'd need an index or server proxy.
-- **Favorites**: Stored in `localStorage` via a small custom hook. Optimistic toggle gives instant feedback.
-- **Notes on the detail page**: Also persisted in `localStorage`. No server write required.
-- **Pagination vs Infinite scroll**: Chose **pagination** for clearer URL semantics and easier scroll restoration. Infinite scroll is easy to add with `useInfiniteQuery`.
-- **Scroll restoration**: We rely on the browser/Next defaults; for very long lists we could store/restore scroll per-URL in `sessionStorage`.
-- **A11y**: Basic labels, focusable buttons/links, `alt` text. Could be expanded with keyboard traps/roving focus for grid items.
-- **Styling**: Tailwind for quick, consistent UI with minimal custom CSS.
-- **Code splitting**: Next.js App Router splits routes automatically; the detail page loads separately.
+## Project Structure (key files)
 
-## What I'd ship next
+```
+app/
+  layout.tsx            # Server layout + Providers wrapper
+  providers.tsx         # Client providers: next-themes + React Query
+  page.tsx              # Redirects to /characters
+  characters/
+    page.tsx            # List view with URL-driven state
+    [id]/page.tsx       # Detail view with favorites + notes
+components/
+  CharacterCard.tsx, FavoriteButton.tsx, Filters.tsx,
+  Pagination.tsx, SearchBar.tsx, SortSelect.tsx, SkeletonCard.tsx, ThemeToggle.tsx
+lib/
+  api.ts                # Fetchers (normalize 404→empty, client-side sort)
+  types.ts
+  useDebouncedValue.ts
+  useFavorites.ts       # favorites + notes in localStorage
+```
 
-- Virtualized list via `react-window` when many cards are shown (100+).
-- E2E smoke test with Playwright (happy path: search -> open detail -> favorite).
-- Session-based scroll restoration for the list grid.
-- Species dropdown powered by an API facet endpoint or precomputed list.
-- Error boundary for image load errors with a fallback avatar.
+## URL Parameters
+
+- `?q=<name>` – debounced search by name
+- `?status=alive|dead|unknown` – server filter
+- `?species=<string>` – server filter
+- `?sort=name-asc|name-desc|episodes-asc|episodes-desc` – **client-side** sort on current page
+- `?page=<n>` – page index (1‑based)
+- `?favorites=1` – filter current page results to your favorites
+
+## Architecture & Trade‑offs
+
+- **Sorting**: API doesn’t support arbitrary sorting; we sort **client‑side** on the current page. A global sort would require a server proxy or index.
+- **Pagination**: Chosen over infinite scroll for clear URL semantics and better back/forward behavior.
+- **404 normalization**: The API returns `404` for “no results”. We normalize to an **empty list** so the UI shows a “No results” state instead of an error.
+- **Theme toggle**: Wrapped in a client‑only `Providers` component to avoid Server Component `createContext` issues.
+- **Typed routes**: If you enable Next’s `typedRoutes`, query strings can trip TypeScript. Either disable it or cast the URL to `Route`. This project keeps it simple.
 
 ## Scripts
 
 - `dev` – Start dev server
-- `build` – Production build
-- `start` – Run the built app
+- `build` – Build
+- `start` – Start production server
+- `lint` – Lint
 
-## Tech
+## Deployment (Vercel)
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS
-- @tanstack/react-query
-- next-themes
+1. Push to a public GitHub repo (include `.gitignore`).
+2. Import in Vercel → select the repo → “Deploy”.
+3. No env vars required. Ensure `Images.remotePatterns` allow `rickandmortyapi.com` (already set in `next.config.mjs`).
+
+## Troubleshooting
+
+- **Dropdown text invisible (dark mode)**: We set explicit colors for `select, option` in `globals.css`.
+- **Theme toggle doesn’t work**: Ensure `ThemeToggle` is inside `<Providers>` and the toggle uses a `mounted` guard to avoid SSR/CSR mismatch.
+- **`Module not found: '@/lib/api'`**: Add `paths` to `tsconfig.json` → `{ "@/*": ["./*"] }`.
+- **Typed routes error on `router.replace`**: Disable `experimental.typedRoutes` or cast URL: `(url as Route)`.
+- **Devtools mismatch**: If using `@tanstack/react-query-devtools`, pin to the same minor as `@tanstack/react-query` or remove devtools.
+- **Git ignoring doesn’t work**: Commit `.gitignore`, then untrack previously added files: `git rm -r --cached node_modules .next out`.
+
+## What I’d ship next
+
+- Virtualized grid (`react-window`) for super long lists
+- Playwright smoke test (search → open detail → favorite → back)
+- Scroll restoration per‑URL via `sessionStorage`
+- Species facets (pre-computed or via a tiny API proxy)
+- Server-side sort, filters, pagination, search and favorites for the full dataset
