@@ -15,8 +15,8 @@ A small, polished React app that explores the public **Rick & Morty API** with g
 ## Quickstart
 
 ```bash
-pnpm i   # or npm i / yarn
-pnpm dev # http://localhost:3000
+npm i   # or npm i / yarn
+npm run dev # http://localhost:3000
 ```
 
 ## Architecture Notes & Trade-offs
